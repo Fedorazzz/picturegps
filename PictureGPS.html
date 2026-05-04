@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PictureGPS v1.0</title>
+    <style>
+        :root {
+            --primary: #007AFF; --success: #34c759; --bg: #f4f4f9;
+            --card-bg: #ffffff; --text-main: #333333; --text-secondary: #555555;
+            --input-border: #dddddd; --panel-bg: #f9f9f9; --panel-border: #eeeeee;
+        }
+        [data-theme="dark"] {
+            --bg: #1c1c1e; --card-bg: #2c2c2e; --text-main: #f2f2f7;
+            --text-secondary: #aeaeb2; --input-border: #3a3a3c; --panel-bg: #3a3a3c;
+            --panel-border: #48484a;
+        }
+        body {
+            font-family: -apple-system, system-ui, sans-serif; background: var(--bg);
+            color: var(--text-main); margin: 0; padding: 20px;
+            display: flex; flex-direction: column; align-items: center; transition: background 0.2s;
+        }
+        .header { width: 100%; max-width: 500px; display: flex; justify-content: flex-end; margin-bottom: 15px; }
+        .theme-toggle {
+            background: var(--card-bg); border: 1px solid var(--input-border);
+            padding: 8px 16px; border-radius: 20px; cursor: pointer;
+            font-size: 0.85rem; color: var(--text-main); font-weight: 600;
+        }
+        .card {
+            background: var(--card-bg); padding: 25px; border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 500px; box-sizing: border-box;
+        }
+        .input-group { margin-bottom: 12px; }
+        label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; }
+        input, textarea {
+            width: 100%; padding: 11px; border: 1px solid var(--input-border);
+            border-radius: 9px; box-sizing: border-box; background: var(--card-bg);
+            color: var(--text-main); font-family: inherit;
+        }
+        .btn-search {
+            background: #8e8e93; color: white; font-weight: bold; cursor: pointer;
+            border: none; padding: 12px; width: 100%; border-radius: 9px; margin-top: 5px;
+            display: flex; justify-content: center; align-items: center; gap: 8px;
+        }
+        .spinner {
+            width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff; border-radius: 50%; display: none; animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .style-panel { background: var(--panel-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--panel-border); margin-top: 15px; }
+        canvas { width: 100%; border-radius: 15px; margin-top: 25px; display: none; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .download-btn {
+            display: none; margin-top: 15px; background: var(--success); color: white;
+            text-decoration: none; padding: 14px; text-align: center; border-radius: 10px;
+            font-weight: bold; width: 100%; cursor: pointer; border: none; font-size: 1rem;
+        }
+        #status { font-size: 0.8rem; text-align: center; margin: 10px 0; color: #ff3b30; }
+        .footer { margin-top: 30px; font-size: 0.7rem; color: var(--text-secondary); opacity: 0.6; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <button class="theme-toggle" id="themeToggle">🌓 Тема</button>
+</div>
+
+<div class="card">
+    <div class="input-group">
+        <label>📸 Фотография</label>
+        <input type="file" id="imageInput" accept="image/*">
+    </div>
+
+    <div class="input-group">
+        <label>🔍 Поиск адреса</label>
+        <input type="text" id="addressSearch" placeholder="Москва, ул. Лескова, 5">
+        <button type="button" id="getCoordsBtn" class="btn-search">
+            <span class="spinner" id="searchSpinner"></span>
+            <span>Получить координаты и адрес</span>
+        </button>
+    </div>
+    <div id="status"></div>
+
+    <div class="input-group">
+        <label>📅 Дата</label>
+        <input type="text" id="dateInput">
+    </div>
+
+    <div class="input-group">
+        <label>🏠 Адрес</label>
+        <input type="text" id="addressDisplay">
+    </div>
+
+    <div class="input-group">
+        <label>🌐 Координаты</label>
+        <input type="text" id="coordsInput">
+    </div>
+
+    <div class="input-group">
+        <label>✍️ Округ и Город</label>
+        <textarea id="extraTextInput" rows="2">Северо-Восточный административный округ&#10;Москва</textarea>
+    </div>
+
+    <div class="style-panel">
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <div style="flex: 1;">
+                <label>Цвет</label>
+                <input type="color" id="textColor" value="#fff9c4">
+            </div>
+            <div style="flex: 2;">
+                <label>Размер: <span id="fontSizeVal">3.5</span>%</label>
+                <input type="range" id="fontSize" min="1" max="10" step="0.1" value="3.5">
+            </div>
+        </div>
+    </div>
+
+    <button id="downloadBtn" class="download-btn">⬇ Скачать результат</button>
+</div>
+
+<canvas id="canvas"></canvas>
+<div class="footer">picturegps v1.0 by Fedorazzz 2026</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const months = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
+    let sourceImg = null;
+
+    // --- ТРАНСЛИТЕРАЦИЯ ---
+    function translit(word) {
+        const answer = {
+            'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'yo','ж':'zh','з':'z','и':'i','й':'j','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'kh','ц':'ts','ч':'ch','ш':'sh','щ':'shch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya',
+            'А':'A','Б':'B','В':'V','Г':'G','Д':'D','Е':'E','Ё':'Yo','Ж':'Zh','З':'Z','И':'I','Й':'J','К':'K','Л':'L','М':'M','Н':'N','О':'O','П':'P','Р':'R','С':'S','Т':'T','У':'U','Ф':'F','Х':'Kh','Ц':'Ts','Ч':'Ch','Ш':'Sh','Щ':'Shch','Ъ':'','Ы':'Y','Ь':'','Э':'E','Ю':'Yu','Я':'Ya'
+        };
+        return word.split('').map(char => answer[char] || char).join('');
+    }
+
+    // --- ГЕНЕРАЦИЯ ИМЕНИ ФАЙЛА ---
+    function getCleanFilename() {
+        // Дата: DDMMYYHHMM
+        const dateStr = document.getElementById('dateInput').value; // 22.10.2024 14:30
+        const dateMatch = dateStr.match(/(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2})/);
+        let ts = "0000000000";
+        if(dateMatch) {
+            ts = `${dateMatch[1]}${dateMatch[2]}${dateMatch[3].slice(-2)}${dateMatch[4]}${dateMatch[5]}`;
+        }
+
+        // Адрес
+        const addr = document.getElementById('addressDisplay').value; // "5 улица Лескова"
+        // Убираем лишние слова типа "улица", "проспект", "дом", запятые
+        let cleanAddr = addr.replace(/(улица|ул\.|проспект|пр-т|шоссе|дом|д\.)/gi, '').replace(/,/g, '').trim();
+        
+        // Транслит и удаление пробелов
+        let finalAddr = translit(cleanAddr).replace(/\s+/g, '');
+        
+        return `${ts}_${finalAddr}.jpg`;
+    }
+
+    // --- ТЕМА ---
+    const themeToggle = document.getElementById('themeToggle');
+    themeToggle.onclick = () => {
+        const curr = document.documentElement.getAttribute('data-theme');
+        const next = curr === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+    };
+    document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'light');
+
+    // --- ИНИЦИАЛИЗАЦИЯ ДАТЫ ---
+    const d = new Date();
+    document.getElementById('dateInput').value = `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+
+    // --- РЕНДЕР ---
+    function render() {
+        if (!sourceImg) return;
+        canvas.width = sourceImg.width; canvas.height = sourceImg.height;
+        ctx.drawImage(sourceImg, 0, 0);
+
+        const fs = Math.round(canvas.height * (parseFloat(document.getElementById('fontSize').value) / 100));
+        ctx.font = `bold ${fs}px Arial, sans-serif`;
+        ctx.fillStyle = document.getElementById('textColor').value;
+        ctx.textAlign = "right";
+        ctx.shadowColor = "rgba(0,0,0,0.85)"; ctx.shadowBlur = fs/5;
+        ctx.strokeStyle = "black"; ctx.lineWidth = fs/6;
+
+        const dateVal = document.getElementById('dateInput').value;
+        const dateMatch = dateVal.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{2})$/);
+        const formattedDate = dateMatch ? `${parseInt(dateMatch[1])} ${months[parseInt(dateMatch[2])-1]} ${dateMatch[3]} время: ${dateMatch[4]}:${dateMatch[5]}` : dateVal;
+
+        const lines = [
+            formattedDate,
+            document.getElementById('addressDisplay').value,
+            document.getElementById('coordsInput').value,
+            ...document.getElementById('extraTextInput').value.split('\n')
+        ].filter(l => l && l.trim() !== "").reverse();
+
+        const padding = fs * 0.9;
+        lines.forEach((line, i) => {
+            const y = canvas.height - padding - (i * fs * 1.4);
+            ctx.strokeText(line, canvas.width - padding, y);
+            ctx.fillText(line, canvas.width - padding, y);
+        });
+
+        canvas.style.display = "block";
+        document.getElementById('downloadBtn').style.display = "block";
+    }
+
+    // --- СКАЧИВАНИЕ (Blob метод) ---
+    document.getElementById('downloadBtn').onclick = () => {
+        canvas.toBlob((blob) => {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = getCleanFilename();
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }, 'image/jpeg', 0.95);
+    };
+
+    // --- ГЕО ---
+    document.getElementById('getCoordsBtn').onclick = async () => {
+        const q = document.getElementById('addressSearch').value;
+        if(!q) return;
+        document.getElementById('searchSpinner').style.display = "inline-block";
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(q)}&limit=1`, { headers: {'Accept-Language': 'ru'} });
+            const data = await res.json();
+            if (data.length > 0) {
+                const a = data[0].address;
+                document.getElementById('addressDisplay').value = `${a.house_number || ""} ${a.road || a.pedestrian || a.suburb || ""}`.trim();
+                document.getElementById('coordsInput').value = `${parseFloat(data[0].lat).toFixed(6)}, ${parseFloat(data[0].lon).toFixed(6)}`;
+                render();
+            }
+        } catch (e) { document.getElementById('status').innerText = "Ошибка API"; }
+        document.getElementById('searchSpinner').style.display = "none";
+    };
+
+    // --- ПРЕВЬЮ ---
+    document.getElementById('imageInput').onchange = (e) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            sourceImg = new Image();
+            sourceImg.onload = render;
+            sourceImg.src = ev.target.result;
+        };
+        if(e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
+    };
+
+    ['dateInput', 'addressDisplay', 'coordsInput', 'extraTextInput', 'textColor', 'fontSize'].forEach(id => {
+        document.getElementById(id).oninput = () => {
+            if(id === 'fontSize') document.getElementById('fontSizeVal').innerText = document.getElementById(id).value;
+            render();
+        };
+    });
+});
+</script>
+</body>
+</html>
