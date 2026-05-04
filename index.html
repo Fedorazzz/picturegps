@@ -11,9 +11,9 @@
             --input-border: #dddddd; --panel-bg: #f9f9f9; --panel-border: #eeeeee;
         }
         [data-theme="dark"] {
-            --bg: #121214; --card-bg: #1e1e20; --text-main: #e4e4e7;
-            --text-secondary: #a1a1aa; --input-border: #2e2e32; --panel-bg: #27272a;
-            --panel-border: #3f3f46;
+            --bg: #1a1a1c; --card-bg: #242426; --text-main: #e4e4e7;
+            --text-secondary: #a1a1aa; --input-border: #3f3f46; --panel-bg: #2d2d30;
+            --panel-border: #4a4a4e;
         }
 
         body {
@@ -43,13 +43,13 @@
             .main-container { flex-direction: row; justify-content: center; gap: 30px; padding: 15px 40px 40px; }
             .side-panel { width: 450px; flex-shrink: 0; }
             .preview-panel { flex: 1; max-width: 850px; display: flex; flex-direction: column; }
-            .preview-area { height: 100%; display: flex; flex-direction: column; }
+            .preview-area { height: 100% !important; display: flex; flex-direction: column; }
         }
 
         .card {
             background: var(--card-bg); padding: 25px; border-radius: 24px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.06); width: 100%; box-sizing: border-box;
-            border: 1px solid var(--panel-border); height: 100%;
+            border: 1px solid var(--panel-border);
         }
 
         .input-group { margin-bottom: 15px; }
@@ -67,6 +67,10 @@
             display: flex; justify-content: center; align-items: center; gap: 8px;
         }
 
+        /* Область превью */
+        .preview-panel { margin-top: 20px; }
+        @media (min-width: 900px) { .preview-panel { margin-top: 0; } }
+
         .preview-area {
             background: var(--card-bg); border-radius: 24px; padding: 20px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.06); width: 100%; box-sizing: border-box;
@@ -75,18 +79,18 @@
         
         .canvas-container { 
             flex: 1; display: flex; align-items: center; justify-content: center; 
-            overflow: hidden; margin-bottom: 20px; background: rgba(0,0,0,0.03); border-radius: 16px;
+            margin-bottom: 20px; background: rgba(0,0,0,0.03); border-radius: 16px; min-height: 300px;
         }
 
         canvas { 
-            max-width: 100%; max-height: 100%; height: auto; border-radius: 8px; 
+            max-width: 100%; height: auto; border-radius: 8px; 
             box-shadow: 0 4px 20px rgba(0,0,0,0.2); 
         }
 
         .download-btn {
             background: var(--success); color: white; border: none;
             padding: 18px; border-radius: 14px; font-weight: bold; width: 100%;
-            cursor: pointer; font-size: 1.1rem; transition: 0.2s; margin-top: auto;
+            cursor: pointer; font-size: 1.1rem; transition: 0.2s;
         }
 
         .style-panel { background: var(--panel-bg); padding: 18px; border-radius: 16px; border: 1px solid var(--panel-border); margin-top: 10px; }
@@ -112,7 +116,7 @@
     <div class="side-panel">
         <div class="card">
             <div class="input-group">
-                <label>📸 Фотография</label>
+                <label>📸 Выберите фотографию</label>
                 <input type="file" id="imageInput" accept="image/*">
             </div>
 
@@ -147,11 +151,9 @@
             </div>
 
             <div class="style-panel">
-                <div class="input-group">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <label>Цвет текста</label>
-                        <input type="color" id="textColor" value="#fff9c4" style="height: 30px; width: 50px; border: none; cursor: pointer; background: none;">
-                    </div>
+                <div class="input-group" style="display: flex; justify-content: space-between; align-items: center;">
+                    <label>Цвет текста</label>
+                    <input type="color" id="textColor" value="#fff9c4" style="height: 30px; width: 50px; border: none; cursor: pointer; background: none;">
                 </div>
                 
                 <div class="style-grid">
@@ -175,7 +177,7 @@
 
     <div class="preview-panel">
         <div class="preview-area" id="previewArea">
-            <label style="margin-bottom: 10px; display: block; text-align: center;">👀 Результат:</label>
+            <label style="margin-bottom: 15px; display: block; text-align: center; font-weight: bold;">👀 Результат:</label>
             <div class="canvas-container">
                 <canvas id="canvas"></canvas>
             </div>
@@ -219,9 +221,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const d = new Date();
     document.getElementById('dateInput').value = `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
-    function render() {
+    function render(isFirstLoad = false) {
         if (!sourceImg) return;
         previewArea.style.display = "flex";
+        
         canvas.width = sourceImg.width; canvas.height = sourceImg.height;
         ctx.drawImage(sourceImg, 0, 0);
 
@@ -248,6 +251,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if(sw > 0) ctx.strokeText(line, canvas.width - padding, y);
             ctx.fillText(line, canvas.width - padding, y);
         });
+
+        // Плавный скролл при первой загрузке или поиске на мобильных
+        if (isFirstLoad && window.innerWidth < 900) {
+            previewArea.scrollIntoView({ behavior: 'smooth' });
+        }
     }
 
     document.getElementById('downloadBtn').onclick = () => {
@@ -270,7 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const a = data[0].address;
                 document.getElementById('addressDisplay').value = `${a.house_number || ""} ${a.road || a.suburb || ""}`.trim();
                 document.getElementById('coordsInput').value = `${parseFloat(data[0].lat).toFixed(6)}, ${parseFloat(data[0].lon).toFixed(6)}`;
-                render();
+                render(true);
             }
         } catch (e) { document.getElementById('status').innerText = "Ошибка поиска"; }
         document.getElementById('searchSpinner').style.display = "none";
@@ -280,7 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const reader = new FileReader();
         reader.onload = (ev) => {
             sourceImg = new Image();
-            sourceImg.onload = render;
+            sourceImg.onload = () => render(true);
             sourceImg.src = ev.target.result;
         };
         if(e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
@@ -288,7 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     ['dateInput', 'addressDisplay', 'coordsInput', 'extraTextInput', 'textColor', 'fontSize', 'fontWeight', 'strokeWeight'].forEach(id => {
         document.getElementById(id).oninput = () => {
-            document.getElementById(id + 'Val') && (document.getElementById(id + 'Val').innerText = document.getElementById(id).value);
+            if(document.getElementById(id + 'Val')) document.getElementById(id + 'Val').innerText = document.getElementById(id).value;
             render();
         };
     });
